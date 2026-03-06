@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+		"allowSyntheticDefaultImports": true,
+		"declaration": true,
+		"esModuleInterop": true,
+		"lib": ["ES2022"],
+		"module": "CommonJS",
+		"moduleResolution": "node10",
+		"outDir": "dist",
+		"resolveJsonModule": true,
+		"rootDir": "src",
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"target": "ES2022"
+	},
+	"exclude": ["node_modules", "dist", "src/ui"],
+	"include": ["src/**/*"]
+}
