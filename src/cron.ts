@@ -2,13 +2,17 @@ import type { ScheduledTask } from 'node-cron';
 import cron from 'node-cron';
 
 import { config } from './config';
-
 import { runPipeline } from './pipeline';
 
 let scheduledTask: ScheduledTask | null = null;
 
 export function startCron(): void {
 	const schedule = config.cron.schedule;
+
+	if (scheduledTask) {
+		scheduledTask.stop();
+		console.log('[cron] Stopped existing cron task');
+	}
 
 	console.log(`[cron] Scheduling pipeline: ${schedule}`);
 
@@ -19,11 +23,15 @@ export function startCron(): void {
 
 	scheduledTask = cron.schedule(schedule, async () => {
 		console.log('[cron] Triggered pipeline run');
-
 		await runPipeline();
 	});
 
 	console.log('[cron] Cron started');
+}
+
+export function rescheduleCron(newSchedule: string): void {
+	console.log(`[cron] Rescheduling to: ${newSchedule}`);
+	startCron();
 }
 
 export function getSchedule(): string {

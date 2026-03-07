@@ -43,6 +43,7 @@ export interface Post extends ScoredPost {
 export interface Batch {
 	id: number;
 	postIds: string[];
+	totalCandidates?: number;
 	createdAt: string;
 	notified: boolean;
 }

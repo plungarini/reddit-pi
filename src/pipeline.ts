@@ -53,13 +53,18 @@ export async function runPipeline(): Promise<void> {
 
 		// Step 4: Score (Phase 1 — algorithmic)
 		const scored = scorePosts(candidates);
-		const top8 = scored.slice(0, 8);
+
+		// Take enough candidates to fulfill postsPerBatch even after diversity filtering
+		// Since each sub can have max 2, we need at least postsPerBatch / 2 subreddits.
+		// We take postsPerBatch * 2 to be safe, capped at 30 to preserve performance on Pi.
+		const selectionLimit = Math.min(config.cron.postsPerBatch * 2, 30);
+		const topCandidates = scored.slice(0, selectionLimit);
 
 		// Step 5: Enhance with LLM summaries (sequential on Pi to avoid connection overhead)
-		console.log(`[pipeline] Fetching LLM summaries for ${top8.length} candidates...`);
+		console.log(`[pipeline] Fetching LLM summaries for ${topCandidates.length} candidates...`);
 
 		const enhanced: Array<ScoredPost & { llmSummary?: string }> = [];
-		for (const post of top8) {
+		for (const post of topCandidates) {
 			try {
 				const summary = await summarizePostComments(post.id, post.title);
 				enhanced.push({ ...post, llmSummary: summary });
@@ -85,7 +90,10 @@ export async function runPipeline(): Promise<void> {
 		}
 
 		// Step 8: Create batch record
-		const batchId = createBatch(final.map((p) => p.id));
+		const batchId = createBatch(
+			final.map((p) => p.id),
+			candidates.length,
+		);
 		console.log(`[pipeline] Batch ${batchId} created`);
 
 		// Step 9: Send WhatsApp notification
@@ -113,11 +121,10 @@ async function applyPendingActions(): Promise<void> {
 	const rows = (db_module.getDb() as any)
 		.prepare(
 			`
-    SELECT i.post_id, i.action
+    SELECT i.post_id, i.action, p.fullname
     FROM interactions i
     LEFT JOIN posts p ON i.post_id = p.id
     WHERE i.created_at > datetime('now', '-6 hours')
-      AND (p.id IS NULL OR p.id IS NOT NULL)
     ORDER BY i.created_at DESC
     LIMIT 20
   `,
@@ -126,10 +133,13 @@ async function applyPendingActions(): Promise<void> {
 
 	for (const row of rows) {
 		try {
+			// Reddit API requires fullnames (e.g. t3_abc123)
+			const fullname = row.fullname || `t3_${row.post_id}`;
+
 			if (row.action === 'like') {
-				await upvotePost(row.post_id);
+				await upvotePost(fullname);
 			} else if (row.action === 'dislike') {
-				await hidePost(row.post_id);
+				await hidePost(fullname);
 			}
 
 			await new Promise((r) => setTimeout(r, 500)); // Rate limit buffer
