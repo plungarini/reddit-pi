@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+@layer base {
+	body {
+		@apply text-white bg-zinc-950;
+	}
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 6px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	@apply rounded-full bg-zinc-800;
+}
+::-webkit-scrollbar-thumb:hover {
+	@apply bg-zinc-700;
+}
