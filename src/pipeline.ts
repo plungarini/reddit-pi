@@ -55,15 +55,19 @@ export async function runPipeline(): Promise<void> {
 		const scored = scorePosts(candidates);
 		const top8 = scored.slice(0, 8);
 
-		// Step 5: Enhance with LLM summaries (async, non-blocking per post)
+		// Step 5: Enhance with LLM summaries (sequential on Pi to avoid connection overhead)
 		console.log(`[pipeline] Fetching LLM summaries for ${top8.length} candidates...`);
 
-		const enhanced = await Promise.all(
-			top8.map(async (post): Promise<ScoredPost & { llmSummary?: string }> => {
+		const enhanced: Array<ScoredPost & { llmSummary?: string }> = [];
+		for (const post of top8) {
+			try {
 				const summary = await summarizePostComments(post.id, post.title);
-				return { ...post, llmSummary: summary };
-			}),
-		);
+				enhanced.push({ ...post, llmSummary: summary });
+			} catch (err) {
+				console.error(`[pipeline] LLM enhancement failed for ${post.id}:`, (err as Error).message);
+				enhanced.push({ ...post });
+			}
+		}
 
 		// Step 6: Diversity filter → top 5
 		const final = applyDiversityFilter(enhanced, config.cron.postsPerBatch);
