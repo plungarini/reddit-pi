@@ -1,3 +1,4 @@
+import { AnimatePresence } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -117,9 +118,11 @@ export const Feed: React.FC = () => {
 				</div>
 			) : (
 				<div className="space-y-2">
-					{posts.map((post) => (
-						<PostCard key={post.id} post={post} onLike={handleLike} onDislike={handleDislikeInitiate} />
-					))}
+					<AnimatePresence mode="popLayout">
+						{posts.map((post) => (
+							<PostCard key={post.id} post={post} onLike={handleLike} onDislike={handleDislikeInitiate} />
+						))}
+					</AnimatePresence>
 				</div>
 			)}
 
