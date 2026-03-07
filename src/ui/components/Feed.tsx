@@ -1,11 +1,13 @@
 import { RefreshCw } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Post } from '../../types';
 import { DislikeModal } from './DislikeModal';
 import { PostCard } from './PostCard';
 
 export const Feed: React.FC = () => {
 	const [posts, setPosts] = useState<Post[]>([]);
+	const [totalCandidates, setTotalCandidates] = useState<number | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [dislikeTarget, setDislikeTarget] = useState<Post | null>(null);
@@ -15,7 +17,13 @@ export const Feed: React.FC = () => {
 			const res = await fetch('/api/current-batch');
 			const data = await res.json();
 			if (data && data.posts) {
-				setPosts(data.posts);
+				const sorted = [...data.posts].sort((a, b) => {
+					if (a.interaction && !b.interaction) return 1;
+					if (!a.interaction && b.interaction) return -1;
+					return 0;
+				});
+				setPosts(sorted);
+				setTotalCandidates(data.totalCandidates || null);
 			}
 		} catch (err) {
 			console.error('Failed to fetch feed:', err);
@@ -29,8 +37,15 @@ export const Feed: React.FC = () => {
 		fetchFeed();
 	}, []);
 
+	// ... (handlers like handleLike, handleDislikeConfirm)
 	const handleLike = async (id: string) => {
-		setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, interaction: 'like' } : p)));
+		setPosts((prev) => {
+			const post = prev.find((p) => p.id === id);
+			if (!post) return prev;
+			const updatedPost = { ...post, interaction: 'like' as const };
+			const others = prev.filter((p) => p.id !== id);
+			return [...others, updatedPost];
+		});
 		await fetch(`/api/posts/${id}/like`, { method: 'POST' });
 	};
 
@@ -43,9 +58,13 @@ export const Feed: React.FC = () => {
 		if (!dislikeTarget) return;
 
 		const id = dislikeTarget.id;
-		setPosts((prev) =>
-			prev.map((p) => (p.id === id ? { ...p, interaction: 'dislike', dislikeReason: reason, dislikeTags: tags } : p)),
-		);
+		setPosts((prev) => {
+			const post = prev.find((p) => p.id === id);
+			if (!post) return prev;
+			const updatedPost = { ...post, interaction: 'dislike' as const, dislikeReason: reason, dislikeTags: tags };
+			const others = prev.filter((p) => p.id !== id);
+			return [...others, updatedPost];
+		});
 
 		await fetch(`/api/posts/${id}/dislike`, {
 			method: 'POST',
@@ -65,22 +84,31 @@ export const Feed: React.FC = () => {
 		);
 	}
 
+	const headerActions = document.getElementById('header-actions');
+
 	return (
 		<div className="p-4">
-			<div className="flex items-center justify-between mb-6">
-				<h1 className="text-3xl font-black tracking-tight underline decoration-orange-500 decoration-4 underline-offset-4">
-					Feed
-				</h1>
-				<button
-					onClick={() => {
-						setRefreshing(true);
-						fetchFeed();
-					}}
-					className="p-2 text-zinc-500 hover:text-orange-500 transition-colors"
-				>
-					<RefreshCw className={refreshing ? 'animate-spin' : ''} size={20} />
-				</button>
-			</div>
+			{headerActions &&
+				createPortal(
+					<button
+						onClick={() => {
+							setRefreshing(true);
+							fetchFeed();
+						}}
+						className="p-1 text-zinc-500 hover:text-orange-500 transition-colors"
+					>
+						<RefreshCw className={refreshing ? 'animate-spin' : ''} size={20} />
+					</button>,
+					headerActions,
+				)}
+
+			{posts.length > 0 && (
+				<div className="mb-6 flex items-center gap-2">
+					<span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-2 rounded">
+						Showing {posts.length} of {totalCandidates || '?'} candidates
+					</span>
+				</div>
+			)}
 
 			{posts.length === 0 ? (
 				<div className="bg-zinc-900/50 rounded-2xl p-12 text-center text-zinc-500 border border-zinc-900 border-dashed">

@@ -25,8 +25,6 @@ export const History: React.FC = () => {
 
 	return (
 		<div className="p-4 pb-12">
-			<h1 className="text-3xl font-black tracking-tight mb-8">History</h1>
-
 			{batches.length === 0 ? (
 				<div className="bg-zinc-900/50 rounded-2xl p-12 text-center text-zinc-500 border border-zinc-900 border-dashed">
 					No past recommendations found.
@@ -48,7 +46,7 @@ export const History: React.FC = () => {
 									</span>
 								</div>
 								<span className="text-[10px] text-zinc-600 uppercase font-bold tracking-widest bg-zinc-950 px-2 py-1 rounded">
-									Batch #{batch.id}
+									Batch #{batch.id} • {batch.posts.length}/{batch.totalCandidates || '?'}
 								</span>
 							</div>
 
