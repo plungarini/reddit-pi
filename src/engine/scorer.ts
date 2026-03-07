@@ -1,6 +1,7 @@
 import { config } from '../config';
 
-import { getSubredditScore, getDislikeFingerprints } from '../db';
+import { getDislikeFingerprints } from './fingerprint';
+import { getSubredditScore } from './preferences';
 
 import type { RedditPost, ScoredPost } from '../types';
 

@@ -4,12 +4,15 @@ import Fastify from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import { config, ensureDataDirs } from './config';
-import { startCron } from './cron';
-import { getAllSubredditScores, getBatchHistory, getCurrentBatch, getPost, recordInteraction } from './db';
-import './logger.js'; // initialize global logger first
-import { globalLogger } from './logger.js';
+import { getSchedule, startCron } from './cron';
+import { getBatchHistory, getCurrentBatch, getPost, recordInteraction, resetSubredditScores } from './db/queries';
+import { getDb } from './db/schema';
+import { getAllSubredditScores, updateSubredditScore } from './engine/preferences';
+import './logger'; // initialize global logger first
+import { globalLogger } from './logger';
 import { getPipelineStatus, runPipeline } from './pipeline';
-import { initRedditClient } from './reddit/auth';
+import { hidePost, upvotePost } from './reddit/actions';
+import { initRedditClient, isRedditAuthenticated } from './reddit/auth';
 
 ensureDataDirs();
 
@@ -43,15 +46,15 @@ app.post('/api/pipeline/run', async (_req, reply) => {
 
 // ── Batches ────────────────────────────────────────────────────────────────────
 
-app.get('/api/batches/current', async (_req, reply) => {
+app.get('/api/current-batch', async (_req, reply) => {
 	const batch = getCurrentBatch();
 	if (!batch) return reply.code(404).send({ error: 'No batches yet. Run the pipeline first.' });
 	return batch;
 });
 
-app.get('/api/batches', async (req) => {
+app.get('/api/history', async (req) => {
 	const query = req.query as any;
-	return { batches: getBatchHistory(parseInt(query.limit || '20', 10)) };
+	return getBatchHistory(parseInt(query.limit || '20', 10));
 });
 
 // ── Post interactions ─────────────────────────────────────────────────────────
@@ -64,28 +67,68 @@ app.post('/api/posts/:id/like', async (req, reply) => {
 
 	recordInteraction(id, 'like');
 
+	// Immediate Reddit action for responsiveness
+	try {
+		await upvotePost(post.fullname);
+	} catch (err) {
+		console.error(`Failed to upvote ${id} on Reddit:`, err);
+	}
+
 	return { ok: true, action: 'like', postId: id };
 });
 
 app.post('/api/posts/:id/dislike', async (req, reply) => {
 	const { id } = req.params as { id: string };
-
 	const body = req.body as any;
 
 	const post = getPost(id);
-
 	if (!post) return reply.code(404).send({ error: 'Post not found' });
 
 	recordInteraction(id, 'dislike', undefined, body?.reason, body?.tags);
+
+	// Immediate Reddit action for responsiveness
+	try {
+		await hidePost(post.fullname);
+	} catch (err) {
+		console.error(`Failed to hide ${id} on Reddit:`, err);
+	}
 
 	return { ok: true, action: 'dislike', postId: id };
 });
 
 // ── Preferences ───────────────────────────────────────────────────────────────
 
-app.get('/api/preferences', async () => ({
-	subreddits: getAllSubredditScores(),
-}));
+app.get('/api/preferences', async () => {
+	return getAllSubredditScores();
+});
+
+app.post('/api/preferences/update', async (req) => {
+	const { subreddit, isLike } = req.body as { subreddit: string; isLike: boolean };
+	updateSubredditScore(subreddit, isLike);
+	return { ok: true };
+});
+
+app.delete('/api/preferences', async () => {
+	resetSubredditScores();
+	return { ok: true };
+});
+
+// ── Status ────────────────────────────────────────────────────────────────────
+
+app.get('/api/status', async () => {
+	const db = getDb();
+	const postsCount = (db.prepare('SELECT COUNT(*) as count FROM posts').get() as any).count;
+	const interactionsCount = (db.prepare('SELECT COUNT(*) as count FROM interactions').get() as any).count;
+
+	return {
+		waOnline: true, // TODO: check actual WA connection status if possible
+		redditValid: isRedditAuthenticated(),
+		postsCount,
+		interactionsCount,
+		logs: globalLogger.getRecentLogs(25).reverse(),
+		schedule: getSchedule(),
+	};
+});
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
@@ -123,15 +166,8 @@ app.get('/api/preferences', async () => ({
 		// Graceful Shutdown Handlers
 		const shutdown = async (signal: string) => {
 			console.log(`\n[server] Received ${signal}. Starting graceful shutdown...`);
-
-			// 1. Stop taking new requests
 			await app.close();
-			console.log('[server] Fastify server closed.');
-
-			// 2. Wait for logger to flush its batch
 			await globalLogger.close();
-			console.log('[server] Logger flushed. Goodbye!');
-
 			process.exit(0);
 		};
 
@@ -139,7 +175,6 @@ app.get('/api/preferences', async () => ({
 		process.on('SIGTERM', () => shutdown('SIGTERM'));
 	} catch (err) {
 		app.log.error(err);
-
 		process.exit(1);
 	}
 })();

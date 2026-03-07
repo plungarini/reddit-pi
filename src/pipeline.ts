@@ -1,16 +1,10 @@
-import { config } from './config.js';
-import {
-	createBatch,
-	getInteractedPostIds,
-	getSeenPostIds,
-	markBatchNotified,
-	upsertFingerprint,
-	upsertPost,
-} from './db';
+import { config } from './config';
+import { createBatch, getInteractedPostIds, getSeenPostIds, markBatchNotified, upsertPost } from './db/queries';
 import { applyDiversityFilter } from './engine/diversity';
+import { upsertFingerprint } from './engine/fingerprint';
 import { extractAndStoreKeywords, scorePosts } from './engine/scorer';
 import { summarizePostComments } from './llm/summarize';
-import './logger.js';
+import './logger';
 import { sendBatchNotification } from './notify/whatsapp';
 import { hidePost, upvotePost } from './reddit/actions';
 import { fetchHomeFeed } from './reddit/feed';
@@ -34,7 +28,7 @@ export async function runPipeline(): Promise<void> {
 	const startTime = Date.now();
 	console.log('[pipeline] ── Starting pipeline run ──');
 
-	const { initRedditClient } = await import('./reddit/auth.js');
+	const { initRedditClient } = await import('./reddit/auth');
 	await initRedditClient();
 
 	try {
@@ -111,7 +105,7 @@ async function applyPendingActions(): Promise<void> {
 	// Get interactions that haven't been applied to Reddit yet
 	// We apply the PREVIOUS batch's interactions so there's time to interact
 
-	const db_module = await import('./db');
+	const db_module = await import('./db/schema');
 	const rows = (db_module.getDb() as any)
 		.prepare(
 			`

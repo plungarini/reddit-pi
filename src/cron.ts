@@ -1,8 +1,11 @@
+import type { ScheduledTask } from 'node-cron';
 import cron from 'node-cron';
 
 import { config } from './config';
 
 import { runPipeline } from './pipeline';
+
+let scheduledTask: ScheduledTask | null = null;
 
 export function startCron(): void {
 	const schedule = config.cron.schedule;
@@ -11,15 +14,18 @@ export function startCron(): void {
 
 	if (!cron.validate(schedule)) {
 		console.error(`[cron] Invalid cron expression: ${schedule}`);
-
 		return;
 	}
 
-	cron.schedule(schedule, async () => {
+	scheduledTask = cron.schedule(schedule, async () => {
 		console.log('[cron] Triggered pipeline run');
 
 		await runPipeline();
 	});
 
 	console.log('[cron] Cron started');
+}
+
+export function getSchedule(): string {
+	return config.cron.schedule;
 }

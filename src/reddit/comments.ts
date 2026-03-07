@@ -1,4 +1,4 @@
-import { redditClient } from './auth.js';
+import { redditClient } from './auth';
 
 export interface RedditComment {
 	id: string;
