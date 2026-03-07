@@ -46,7 +46,7 @@ function toRedditPost(raw: RawChild['data']): RedditPost {
 		upvoteRatio: raw.upvote_ratio,
 		numComments: raw.num_comments,
 		url: raw.url,
-		permalink: `https://reddit.com${raw.permalink}`,
+		permalink: raw.permalink,
 		selftext: raw.selftext,
 		createdUtc: raw.created_utc,
 		contentType,
