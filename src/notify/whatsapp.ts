@@ -1,5 +1,5 @@
-import { config } from '../config.js';
-import type { Post } from '../types.js';
+import { config } from '../config';
+import type { Post } from '../types';
 
 export async function sendBatchNotification(posts: Post[]): Promise<boolean> {
 	if (!config.wa.notifyNumber) {

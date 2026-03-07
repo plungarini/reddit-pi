@@ -1,4 +1,4 @@
-import { redditClient } from './auth.js';
+import { redditClient } from './auth';
 
 /**
  * Upvote a post. direction: 1 = upvote, 0 = remove, -1 = downvote
