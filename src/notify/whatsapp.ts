@@ -1,7 +1,42 @@
 import { config } from '../config';
 import type { Post } from '../types';
 
+let sessionEnsured = false;
+
+async function ensureSessionExists() {
+	if (sessionEnsured) return;
+
+	try {
+		console.log(`[notify] Ensuring session "${config.wa.sessionId}" exists in WhatsApp API...`);
+		const response = await fetch(`${config.wa.apiUrl}/sessions`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-API-Key': config.wa.apiKey,
+			},
+			body: JSON.stringify({
+				id: config.wa.sessionId,
+				project_name: 'Reddit Pi',
+				allowed_numbers: [config.wa.notifyNumber],
+				webhook_url: `${config.wa.apiUrl.replace(':3001', ':3000')}/api/webhook/whatsapp`, // Heuristic back-reference
+			}),
+		});
+
+		if (response.ok || response.status === 409) {
+			sessionEnsured = true;
+			console.log(`[notify] WhatsApp session "${config.wa.sessionId}" ready`);
+		} else {
+			const err = await response.text();
+			console.warn('[notify] Could not ensure WhatsApp session:', err);
+		}
+	} catch (err) {
+		console.warn('[notify] Failed to connect to WhatsApp API for session check:', err);
+	}
+}
+
 export async function sendBatchNotification(posts: Post[]): Promise<boolean> {
+	await ensureSessionExists();
+
 	if (!config.wa.notifyNumber) {
 		console.warn('[notify] WA_NOTIFY_NUMBER not set — skipping notification');
 		return false;
@@ -44,6 +79,8 @@ export async function sendBatchNotification(posts: Post[]): Promise<boolean> {
 }
 
 export async function sendAuthFailureNotification(): Promise<boolean> {
+	await ensureSessionExists();
+
 	if (!config.wa.notifyNumber) {
 		console.warn('[notify] WA_NOTIFY_NUMBER not set — skipping auth failure notification');
 		return false;
