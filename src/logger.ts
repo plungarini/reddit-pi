@@ -12,6 +12,7 @@ interface LogEntry {
 
 class LoggerClient {
 	private logs: LogEntry[] = [];
+	private history: string[] = [];
 	private readonly projectId = 'reddit-pi';
 	private readonly endpoint = 'http://127.0.0.1:4000/logs';
 	private readonly interval: NodeJS.Timeout;
@@ -76,6 +77,12 @@ class LoggerClient {
 			message,
 		});
 
+		// Also push to persistent history for UI
+		this.history.push(message);
+		if (this.history.length > 50) {
+			this.history.shift();
+		}
+
 		// Defend against memory leaks if logger-pi is completely dead
 		if (this.logs.length > 5000) {
 			this.logs = this.logs.slice(-1000); // keep last 1000 only
@@ -123,7 +130,7 @@ class LoggerClient {
 	}
 
 	public getRecentLogs(limit = 20): string[] {
-		return this.logs.slice(-limit).map((l) => l.message);
+		return this.history.slice(-limit);
 	}
 
 	public async close() {
