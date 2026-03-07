@@ -1,14 +1,13 @@
 import cors from '@fastify/cors';
 import staticFiles from '@fastify/static';
 import Fastify from 'fastify';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { config, ensureDataDirs } from './config';
 import { getSchedule, startCron } from './cron';
 import { getBatchHistory, getCurrentBatch, getPost, recordInteraction, resetSubredditScores } from './db/queries';
 import { getDb } from './db/schema';
 import { getAllSubredditScores, updateSubredditScore } from './engine/preferences';
-import './logger'; // initialize global logger first
 import { globalLogger } from './logger';
 import { getPipelineStatus, runPipeline } from './pipeline';
 import { hidePost, upvotePost } from './reddit/actions';
@@ -39,7 +38,7 @@ app.post('/api/pipeline/run', async (_req, reply) => {
 	}
 
 	// Fire and don't await — returns immediately
-	runPipeline().catch(console.error);
+	runPipeline().catch((err) => globalLogger.error(`Pipeline failed: ${err.message}`));
 
 	return { ok: true, message: 'Pipeline started' };
 });
@@ -54,7 +53,7 @@ app.get('/api/current-batch', async (_req, reply) => {
 
 app.get('/api/history', async (req) => {
 	const query = req.query as any;
-	return getBatchHistory(parseInt(query.limit || '20', 10));
+	return getBatchHistory(Number.parseInt(query.limit || '20', 10));
 });
 
 // ── Post interactions ─────────────────────────────────────────────────────────
@@ -71,7 +70,7 @@ app.post('/api/posts/:id/like', async (req, reply) => {
 	try {
 		await upvotePost(post.fullname);
 	} catch (err) {
-		console.error(`Failed to upvote ${id} on Reddit:`, err);
+		globalLogger.error(`Failed to upvote ${id} on Reddit: ${err}`);
 	}
 
 	return { ok: true, action: 'like', postId: id };
@@ -90,7 +89,7 @@ app.post('/api/posts/:id/dislike', async (req, reply) => {
 	try {
 		await hidePost(post.fullname);
 	} catch (err) {
-		console.error(`Failed to hide ${id} on Reddit:`, err);
+		globalLogger.error(`Failed to hide ${id} on Reddit: ${err}`);
 	}
 
 	return { ok: true, action: 'dislike', postId: id };
@@ -121,13 +120,43 @@ app.get('/api/status', async () => {
 	const interactionsCount = (db.prepare('SELECT COUNT(*) as count FROM interactions').get() as any).count;
 
 	return {
-		waOnline: true, // TODO: check actual WA connection status if possible
+		waOnline: true,
 		redditValid: isRedditAuthenticated(),
 		postsCount,
 		interactionsCount,
 		logs: globalLogger.getRecentLogs(25).reverse(),
 		schedule: getSchedule(),
 	};
+});
+
+app.get('/api/config', async () => {
+	return {
+		cronSchedule: config.cron.schedule,
+		postsPerBatch: config.cron.postsPerBatch,
+		candidatePoolSize: config.cron.candidatePoolSize,
+	};
+});
+
+app.post('/api/config/update', async (req, reply) => {
+	const body = req.body as { cronSchedule?: string; postsPerBatch?: number; candidatePoolSize?: number };
+
+	// Simple validation
+	if (body.postsPerBatch && (body.postsPerBatch < 5 || body.postsPerBatch > 50)) {
+		return reply.code(400).send({ error: 'Posts per batch must be 5-50' });
+	}
+	if (body.candidatePoolSize && (body.candidatePoolSize < 50 || body.candidatePoolSize > 1500)) {
+		return reply.code(400).send({ error: 'Pool size must be 50-1500' });
+	}
+
+	const { updatePersistentConfig } = await import('./config');
+	const { rescheduleCron } = await import('./cron');
+
+	updatePersistentConfig(body);
+	if (body.cronSchedule) {
+		rescheduleCron(body.cronSchedule);
+	}
+
+	return { ok: true };
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
@@ -144,7 +173,6 @@ app.get('/api/status', async () => {
 			await app.register(staticFiles, {
 				root: uiDistPath,
 				prefix: '/',
-				decorateReply: false,
 			});
 
 			// SPA fallback — return index.html for all non-API routes
@@ -159,13 +187,13 @@ app.get('/api/status', async () => {
 
 		await app.listen({ port: config.port, host: '0.0.0.0' });
 
-		console.log(`[server] reddit-pi running on port ${config.port}`);
+		globalLogger.info(`[server] reddit-pi running on port ${config.port}`);
 
 		startCron();
 
 		// Graceful Shutdown Handlers
 		const shutdown = async (signal: string) => {
-			console.log(`\n[server] Received ${signal}. Starting graceful shutdown...`);
+			globalLogger.info(`\n[server] Received ${signal}. Starting graceful shutdown...`);
 			await app.close();
 			await globalLogger.close();
 			process.exit(0);
@@ -174,7 +202,7 @@ app.get('/api/status', async () => {
 		process.on('SIGINT', () => shutdown('SIGINT'));
 		process.on('SIGTERM', () => shutdown('SIGTERM'));
 	} catch (err) {
-		app.log.error(err);
+		globalLogger.error(err);
 		process.exit(1);
 	}
 })();

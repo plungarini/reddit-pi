@@ -1,23 +1,25 @@
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { SubredditScore } from '../../types';
 
 export const Preferences: React.FC = () => {
 	const [scores, setScores] = useState<SubredditScore[]>([]);
 	const [loading, setLoading] = useState(true);
 
+	const fetchScores = async () => {
+		try {
+			const res = await fetch('/api/preferences');
+			const data = await res.json();
+			setScores(data || []);
+		} catch (err) {
+			console.error('Failed to fetch preferences:', err);
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	useEffect(() => {
-		const fetchScores = async () => {
-			try {
-				const res = await fetch('/api/preferences');
-				const data = await res.json();
-				setScores(data || []);
-			} catch (err) {
-				console.error('Failed to fetch preferences:', err);
-			} finally {
-				setLoading(false);
-			}
-		};
 		fetchScores();
 	}, []);
 
@@ -38,21 +40,21 @@ export const Preferences: React.FC = () => {
 			</div>
 		);
 
+	const headerActions = document.getElementById('header-actions');
+
 	return (
 		<div className="p-4 pb-12">
-			<div className="flex items-center justify-between mb-8">
-				<h1 className="text-3xl font-black tracking-tight underline decoration-zinc-800 decoration-1 underline-offset-8">
-					Affinities
-				</h1>
-				{scores.length > 0 && (
+			{headerActions &&
+				scores.length > 0 &&
+				createPortal(
 					<button
 						onClick={handleReset}
-						className="text-[8px] font-black uppercase tracking-widest text-zinc-600 hover:text-red-500 transition-colors border border-zinc-800 px-2 py-1 rounded-full"
+						className="text-[8px] font-black uppercase tracking-widest text-zinc-600 hover:text-red-500 transition-colors border border-zinc-800 rounded-full px-3 py-1"
 					>
 						Reset Engine
-					</button>
+					</button>,
+					headerActions,
 				)}
-			</div>
 
 			{scores.length === 0 ? (
 				<div className="bg-zinc-900/50 backdrop-blur-md rounded-3xl p-16 text-center text-zinc-500 border border-zinc-900 border-dashed">

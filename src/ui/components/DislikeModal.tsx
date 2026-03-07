@@ -16,6 +16,13 @@ export const DislikeModal: React.FC<DislikeModalProps> = ({ isOpen, onClose, onS
 	const [reason, setReason] = useState('');
 	const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
+	React.useEffect(() => {
+		if (isOpen) {
+			setReason('');
+			setSelectedTags([]);
+		}
+	}, [isOpen]);
+
 	const toggleTag = (tag: string) => {
 		setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
 	};

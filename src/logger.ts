@@ -12,7 +12,7 @@ interface LogEntry {
 
 class LoggerClient {
 	private logs: LogEntry[] = [];
-	private history: string[] = [];
+	private readonly history: string[] = [];
 	private readonly projectId = 'reddit-pi';
 	private readonly endpoint = 'http://127.0.0.1:4000/logs';
 	private readonly interval: NodeJS.Timeout;
@@ -131,6 +131,26 @@ class LoggerClient {
 
 	public getRecentLogs(limit = 20): string[] {
 		return this.history.slice(-limit);
+	}
+
+	public info(...args: any[]) {
+		this.origInfo(...args);
+		this.queue('info', args);
+	}
+
+	public warn(...args: any[]) {
+		this.origWarn(...args);
+		this.queue('warn', args);
+	}
+
+	public error(...args: any[]) {
+		this.origError(...args);
+		this.queue('error', args);
+	}
+
+	public debug(...args: any[]) {
+		this.origDebug(...args);
+		this.queue('debug', args);
 	}
 
 	public async close() {

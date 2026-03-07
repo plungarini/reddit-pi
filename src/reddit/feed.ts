@@ -62,8 +62,11 @@ export async function fetchHomeFeed(limit = 100): Promise<RedditPost[]> {
 	const posts: RedditPost[] = [];
 	let after: string | undefined;
 
+	console.log(`[reddit] Fetching home feed with pool size limit: ${limit}`);
+
 	while (posts.length < limit) {
-		const batchSize = Math.min(25, limit - posts.length);
+		// Reddit allows up to 100 per request
+		const batchSize = Math.min(100, limit - posts.length);
 		const params: Record<string, string> = { limit: String(batchSize) };
 		if (after) params.after = after;
 
@@ -74,11 +77,14 @@ export async function fetchHomeFeed(limit = 100): Promise<RedditPost[]> {
 
 		posts.push(...children.map((c) => toRedditPost(c.data)));
 		after = listing.data.after ?? undefined;
+
+		console.log(`[reddit] Progress: ${posts.length}/${limit} posts fetched`);
+
 		if (!after) break;
 
-		// polite delay between pages
-		await new Promise((r) => setTimeout(r, 500));
+		// polite delay between pages to avoid spikes
+		await new Promise((r) => setTimeout(r, 1000));
 	}
 
-	return posts;
+	return posts.slice(0, limit);
 }

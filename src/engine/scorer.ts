@@ -151,8 +151,10 @@ export function scorePosts(posts: RedditPost[]): ScoredPost[] {
 	const seenSubreddits = new Set<string>();
 
 	return posts
-
-		.map((p) => scorePost(p, seenSubreddits))
-
+		.map((p) => {
+			const scored = scorePost(p, seenSubreddits);
+			seenSubreddits.add(p.subreddit);
+			return scored;
+		})
 		.sort((a, b) => b.ourScore - a.ourScore);
 }
