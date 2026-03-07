@@ -58,30 +58,44 @@ const FormattedContent: React.FC<{ text: string; className?: string }> = ({ text
 };
 
 export const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDislike }) => {
-	const [isExiting, setIsExiting] = React.useState(false);
+	const [exitType, setExitType] = React.useState<'like' | 'dislike' | null>(null);
 	const isLiked = post.interaction === 'like';
 	const isDisliked = post.interaction === 'dislike';
 
-	const handleAction = (action: 'like' | 'dislike') => {
-		if (isExiting || post.interaction) return;
+	// Reset exit animation when interaction actually updates (post moves to bottom)
+	React.useEffect(() => {
+		if (post.interaction) {
+			setExitType(null);
+		}
+	}, [post.interaction]);
 
-		setIsExiting(true);
+	const handleAction = (action: 'like' | 'dislike') => {
+		if (exitType || post.interaction) return;
+
+		setExitType(action);
 		setTimeout(() => {
 			if (action === 'like') onLike(post.id);
 			else onDislike(post.id);
 		}, 400); // 400ms for visual buffer
 	};
 
+	const isExiting = exitType !== null;
+
 	return (
 		<motion.div
 			layout
-			initial={{ opacity: 0, y: 20 }}
-			animate={isExiting ? { opacity: 0, scale: 0.9, y: 10 } : { opacity: 1, y: 0 }}
-			transition={{ duration: 0.3 }}
+			initial={{ opacity: 0, scale: 0.95, y: 10 }}
+			animate={isExiting ? { opacity: 0, scale: 0.9, y: 5 } : { opacity: 1, scale: 1, y: 0 }}
+			transition={{
+				type: 'spring',
+				stiffness: 400,
+				damping: 30,
+				mass: 0.8,
+			}}
 			className={cn(
-				'bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-4 transition-all',
-				(isLiked || (isExiting && !isDisliked)) && 'border-green-500/50 bg-green-500/5',
-				(isDisliked || (isExiting && isDisliked)) && 'border-red-500/50 bg-red-500/5',
+				'bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-4 transition-all duration-300',
+				(isLiked || exitType === 'like') && 'border-green-500/50 bg-green-500/5',
+				(isDisliked || exitType === 'dislike') && 'border-red-500/50 bg-red-500/5',
 				isDisliked && 'opacity-50',
 			)}
 		>
@@ -137,26 +151,26 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDislike }) =
 						onClick={() => handleAction('like')}
 						disabled={isDisliked || isExiting}
 						className={cn(
-							'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95',
-							isLiked || (isExiting && !isDisliked)
+							'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95 duration-200',
+							isLiked || exitType === 'like'
 								? 'bg-green-500 text-white shadow-lg shadow-green-500/20'
 								: 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700',
 						)}
 					>
-						<ThumbsUp size={18} fill={isLiked || (isExiting && !isDisliked) ? 'currentColor' : 'none'} />
+						<ThumbsUp size={18} fill={isLiked || exitType === 'like' ? 'currentColor' : 'none'} />
 						Like
 					</button>
 					<button
 						onClick={() => handleAction('dislike')}
 						disabled={isLiked || isExiting}
 						className={cn(
-							'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95',
-							isDisliked || (isExiting && isDisliked)
+							'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95 duration-200',
+							isDisliked || exitType === 'dislike'
 								? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
 								: 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700',
 						)}
 					>
-						<ThumbsDown size={18} fill={isDisliked || (isExiting && isDisliked) ? 'currentColor' : 'none'} />
+						<ThumbsDown size={18} fill={isDisliked || exitType === 'dislike' ? 'currentColor' : 'none'} />
 						Dislike
 					</button>
 					<a
