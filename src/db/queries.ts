@@ -90,8 +90,10 @@ function rowToPost(row: any): Post {
 
 // ── Batches ───────────────────────────────────────────────────────────────────
 
-export function createBatch(postIds: string[]): number {
-	const info = getDb().prepare('INSERT INTO batches (post_ids) VALUES (?)').run(JSON.stringify(postIds));
+export function createBatch(postIds: string[], totalCandidates?: number): number {
+	const info = getDb()
+		.prepare('INSERT INTO batches (post_ids, total_candidates) VALUES (?, ?)')
+		.run(JSON.stringify(postIds), totalCandidates || null);
 	return info.lastInsertRowid as number;
 }
 
@@ -114,6 +116,7 @@ export function getCurrentBatch(): (Batch & { posts: Post[] }) | null {
 	return {
 		id: row.id,
 		postIds,
+		totalCandidates: row.total_candidates,
 		createdAt: row.created_at,
 		notified: row.notified === 1,
 		posts: enriched,
@@ -131,7 +134,14 @@ export function getBatchHistory(limit = 20): (Batch & { posts: Post[] })[] {
 			...getPostInteraction(p.id),
 		}));
 
-		return { id: row.id, postIds, createdAt: row.created_at, notified: row.notified === 1, posts: enriched };
+		return {
+			id: row.id,
+			postIds,
+			totalCandidates: row.total_candidates,
+			createdAt: row.created_at,
+			notified: row.notified === 1,
+			posts: enriched,
+		};
 	});
 }
 

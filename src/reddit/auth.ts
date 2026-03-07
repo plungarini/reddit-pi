@@ -31,6 +31,14 @@ async function redditGet<T = unknown>(path: string, params: Record<string, strin
 
 	const res = await fetch(url.toString(), { headers: buildHeaders() });
 
+	// Rate limit tracking
+	const used = res.headers.get('x-ratelimit-used');
+	const remaining = res.headers.get('x-ratelimit-remaining');
+	const reset = res.headers.get('x-ratelimit-reset');
+	if (used || remaining || reset) {
+		console.log(`[reddit] Rate Limit: Used=${used}, Remaining=${remaining}, Reset=${reset}s`);
+	}
+
 	if (res.status === 401 || res.status === 403) {
 		await sendAuthFailureNotification();
 		throw new Error(`Reddit auth failed (${res.status}). Refresh REDDIT_TOKEN_V2 in .env`);
@@ -55,6 +63,14 @@ async function redditPost(path: string, body: Record<string, string>): Promise<u
 		}),
 		body: form.toString(),
 	});
+
+	// Rate limit tracking
+	const used = res.headers.get('x-ratelimit-used');
+	const remaining = res.headers.get('x-ratelimit-remaining');
+	const reset = res.headers.get('x-ratelimit-reset');
+	if (used || remaining || reset) {
+		console.log(`[reddit] Rate Limit: Used=${used}, Remaining=${remaining}, Reset=${reset}s`);
+	}
 
 	if (res.status === 401 || res.status === 403) {
 		await sendAuthFailureNotification();

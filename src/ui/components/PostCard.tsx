@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Clock, ExternalLink, MessageSquare, ThumbsDown, ThumbsUp, User } from 'lucide-react';
+import { ChevronRight, Clock, ExternalLink, MessageSquare, ThumbsDown, ThumbsUp, User } from 'lucide-react';
 import React from 'react';
 import type { Post } from '../../types';
 import { cn } from '../lib/utils';
@@ -9,6 +9,53 @@ interface PostCardProps {
 	onLike: (id: string) => void;
 	onDislike: (id: string) => void;
 }
+
+const FormattedContent: React.FC<{ text: string; className?: string }> = ({ text, className }) => {
+	if (!text) return null;
+
+	// 1. Unescape common HTML entities returned by Reddit API
+	const unescape = (str: string) => {
+		return str
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/&amp;/g, '&')
+			.replace(/&quot;/g, '"')
+			.replace(/&#39;/g, "'")
+			.replace(/&nbsp;/g, ' ');
+	};
+
+	const cleanText = unescape(text);
+
+	// 2. Detect if it's already HTML (Reddit sometimes sends encoded HTML)
+	const hasHtml = /<[a-z][\s\S]*>/i.test(cleanText);
+
+	if (hasHtml) {
+		return (
+			<div
+				className={cn('prose prose-invert prose-sm max-w-none', className)}
+				dangerouslySetInnerHTML={{ __html: cleanText }}
+			/>
+		);
+	}
+
+	// 3. Plain text formatting: handle paragraphs
+	const paragraphs = cleanText.split(/\n\s*\n/).filter(Boolean);
+
+	return (
+		<div className={className}>
+			{paragraphs.map((p, i) => (
+				<p key={i} className="mb-3 last:mb-0">
+					{p.split('\n').map((line, j) => (
+						<React.Fragment key={j}>
+							{line}
+							{j < p.split('\n').length - 1 && <br />}
+						</React.Fragment>
+					))}
+				</p>
+			))}
+		</div>
+	);
+};
 
 export const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDislike }) => {
 	const isLiked = post.interaction === 'like';
@@ -33,7 +80,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDislike }) =
 							<User size={10} /> {post.author}
 						</span>
 						<span className="flex items-center gap-1">
-							<Clock size={10} /> {new Date(post.createdUtc * 1000).toLocaleDateString()}
+							<Clock size={10} /> {new Date(post.fetchedAt).toLocaleDateString()}
 						</span>
 					</div>
 				</div>
@@ -42,7 +89,21 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDislike }) =
 
 				{post.llmSummary && (
 					<div className="bg-orange-500/5 border-l-2 border-orange-500 p-3 mb-4 rounded-r-lg">
-						<p className="text-sm text-zinc-300 italic">“{post.llmSummary}”</p>
+						<FormattedContent text={post.llmSummary} className="text-sm text-zinc-300 italic" />
+					</div>
+				)}
+
+				{post.selftext && (
+					<div className="mb-4">
+						<details className="group">
+							<summary className="text-xs font-bold uppercase tracking-widest text-zinc-500 cursor-pointer hover:text-orange-500 transition-colors list-none flex items-center gap-2">
+								<ChevronRight size={14} className="transition-transform group-open:rotate-90" />
+								<span>Content</span>
+							</summary>
+							<div className="mt-2 text-sm text-zinc-400 leading-relaxed max-h-80 overflow-y-auto p-3 bg-black/40 rounded-xl custom-scrollbar">
+								<FormattedContent text={post.selftext} />
+							</div>
+						</details>
 					</div>
 				)}
 

@@ -40,10 +40,11 @@ function migrate(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS batches (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      post_ids    TEXT NOT NULL,
-      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-      notified    INTEGER NOT NULL DEFAULT 0
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_ids         TEXT NOT NULL,
+      total_candidates INTEGER,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      notified         INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS interactions (
@@ -76,6 +77,15 @@ function migrate(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_interactions_act  ON interactions(action);
     CREATE INDEX IF NOT EXISTS idx_batches_created  ON batches(created_at DESC);
   `);
+
+	// Ensure new columns exist for existing tables
+	const tableInfo = db.prepare("PRAGMA table_info('batches')").all() as any[];
+	const hasTotalCandidates = tableInfo.some((col) => col.name === 'total_candidates');
+
+	if (!hasTotalCandidates) {
+		console.log('[db] Adding missing column: total_candidates to batches table');
+		db.exec('ALTER TABLE batches ADD COLUMN total_candidates INTEGER');
+	}
 
 	console.log('[db] Migrations applied');
 }
