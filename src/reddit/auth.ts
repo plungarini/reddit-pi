@@ -1,5 +1,5 @@
-import { config } from '../config.js';
-import { sendAuthFailureNotification } from '../notify/whatsapp.js';
+import { config } from '../config';
+import { sendAuthFailureNotification } from '../notify/whatsapp';
 
 export interface RedditClient {
 	get<T = unknown>(path: string, params?: Record<string, string>): Promise<T>;
@@ -78,8 +78,12 @@ export const redditClient: RedditClient = {
 	},
 };
 
+export function isRedditAuthenticated(): boolean {
+	return !!_modhash;
+}
+
 /** Call once at startup to validate auth and prime modhash */
 export async function initRedditClient(): Promise<void> {
 	await refreshModhash();
-	console.log('[reddit] auth OK, modhash acquired');
+	console.log(`[reddit] auth OK, modhash acquired: ${_modhash}`);
 }

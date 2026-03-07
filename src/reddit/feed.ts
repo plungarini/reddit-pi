@@ -1,5 +1,5 @@
-import type { RedditPost } from '../types.js';
-import { redditClient } from './auth.js';
+import type { RedditPost } from '../types';
+import { redditClient } from './auth';
 
 interface RawChild {
 	kind: string;
