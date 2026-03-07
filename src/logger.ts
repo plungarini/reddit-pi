@@ -14,15 +14,15 @@ class LoggerClient {
 	private logs: LogEntry[] = [];
 	private readonly projectId = 'reddit-pi';
 	private readonly endpoint = 'http://127.0.0.1:4000/logs';
-	private interval: NodeJS.Timeout;
+	private readonly interval: NodeJS.Timeout;
 	private flushing = false;
 
 	// Keep references to original console methods so we can mirror to terminal
-	private origLog = console.log;
-	private origWarn = console.warn;
-	private origError = console.error;
-	private origInfo = console.info;
-	private origDebug = console.debug;
+	private readonly origLog = console.log;
+	private readonly origWarn = console.warn;
+	private readonly origError = console.error;
+	private readonly origInfo = console.info;
+	private readonly origDebug = console.debug;
 
 	constructor() {
 		// Override global console methods
@@ -99,6 +99,7 @@ class LoggerClient {
 			// If logger-pi is down, just silently drop or re-queue.
 			// We'll re-queue a limited amount so we don't leak memory.
 			this.logs = [...batch, ...this.logs].slice(-5000);
+			// intentionally swallowed to prevent logger failure from crashing app
 		} finally {
 			this.flushing = false;
 		}
@@ -117,8 +118,12 @@ class LoggerClient {
 				body: JSON.stringify({ projectId: this.projectId, logs: this.logs }),
 			}).catch(() => {});
 		} catch (e) {
-			// Ignore
+			// Intentionally empty for sync flush cleanup
 		}
+	}
+
+	public getRecentLogs(limit = 20): string[] {
+		return this.logs.slice(-limit).map((l) => l.message);
 	}
 
 	public async close() {
