@@ -126,6 +126,7 @@ app.get('/api/status', async () => {
 		interactionsCount,
 		logs: globalLogger.getRecentLogs(25).reverse(),
 		schedule: getSchedule(),
+		pausedUntil: config.cron.pausedUntil,
 	};
 });
 
@@ -134,6 +135,7 @@ app.get('/api/config', async () => {
 		cronSchedule: config.cron.schedule,
 		postsPerBatch: config.cron.postsPerBatch,
 		candidatePoolSize: config.cron.candidatePoolSize,
+		pausedUntil: config.cron.pausedUntil,
 	};
 });
 
@@ -157,6 +159,35 @@ app.post('/api/config/update', async (req, reply) => {
 	}
 
 	return { ok: true };
+});
+
+app.post('/api/config/pause', async (req, reply) => {
+	const { days } = req.body as { days: number | 'forever' | null };
+
+	const { updatePersistentConfig } = await import('./config');
+
+	if (days === null) {
+		// Resume
+		updatePersistentConfig({ pausedUntil: null });
+		return { ok: true, pausedUntil: null };
+	}
+
+	if (days === 'forever') {
+		updatePersistentConfig({ pausedUntil: 'forever' });
+		return { ok: true, pausedUntil: 'forever' };
+	}
+
+	if (typeof days !== 'number' || days < 0) {
+		return reply.code(400).send({ error: 'Days must be a positive number' });
+	}
+
+	const pausedUntil = new Date();
+	pausedUntil.setDate(pausedUntil.getDate() + days);
+	const pausedUntilStr = pausedUntil.toISOString();
+
+	updatePersistentConfig({ pausedUntil: pausedUntilStr });
+
+	return { ok: true, pausedUntil: pausedUntilStr };
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
