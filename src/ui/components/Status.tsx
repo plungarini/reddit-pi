@@ -1,6 +1,7 @@
-import { Activity, Clock, Database, MessageSquare, Plus, Save, Trash2, Zap } from 'lucide-react';
+import { Activity, Clock, Database, MessageSquare, Pause, Play, Plus, Save, Trash2, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { PauseModal } from './PauseModal';
 
 export const Status: React.FC = () => {
 	const [status, setStatus] = useState<any>(null);
@@ -11,6 +12,7 @@ export const Status: React.FC = () => {
 		candidatePoolSize: number;
 	} | null>(null);
 	const [saving, setSaving] = useState(false);
+	const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
 
 	const fetchStatus = async () => {
 		try {
@@ -61,6 +63,34 @@ export const Status: React.FC = () => {
 		}
 	};
 
+	const handlePause = async (days: number | 'forever') => {
+		try {
+			await fetch('/api/config/pause', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ days }),
+			});
+			fetchStatus();
+			fetchConfig();
+		} catch (err) {
+			console.error('Failed to pause:', err);
+		}
+	};
+
+	const handleResume = async () => {
+		try {
+			await fetch('/api/config/pause', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ days: null }),
+			});
+			fetchStatus();
+			fetchConfig();
+		} catch (err) {
+			console.error('Failed to resume:', err);
+		}
+	};
+
 	const cronTimes =
 		config?.cronSchedule
 			.split(' ')[1]
@@ -77,10 +107,17 @@ export const Status: React.FC = () => {
 		{
 			label: 'Engine',
 			value: 'Recommendation Core',
-			status: status?.schedule ? `Runs: ${status.schedule}` : 'Online',
-			icon: Zap,
-			color: 'text-orange-500',
-			bg: 'bg-orange-500/10',
+			status:
+				status?.pausedUntil === 'forever'
+					? 'Paused indefinitely'
+					: status?.pausedUntil
+						? `Paused until ${new Date(status.pausedUntil).toLocaleDateString()}`
+						: status?.schedule
+							? `Runs: ${status.schedule}`
+							: 'Online',
+			icon: status?.pausedUntil ? Pause : Zap,
+			color: status?.pausedUntil ? 'text-zinc-500' : 'text-orange-500',
+			bg: status?.pausedUntil ? 'bg-zinc-500/10' : 'bg-orange-500/10',
 		},
 		{
 			label: 'WhatsApp',
@@ -106,20 +143,37 @@ export const Status: React.FC = () => {
 		<div className="p-4 pb-12">
 			{headerActions &&
 				createPortal(
-					<button
-						onClick={async () => {
-							if (!confirm('Trigger manual recommendation run?')) return;
-							try {
-								await fetch('/api/pipeline/run', { method: 'POST' });
-								alert('Pipeline started! System is processing.');
-							} catch (err) {
-								console.error('Failed to start pipeline:', err);
-							}
-						}}
-						className="bg-orange-600 hover:bg-orange-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/20"
-					>
-						Run Pipeline
-					</button>,
+					<div className="flex gap-2">
+						{status?.pausedUntil ? (
+							<button
+								onClick={handleResume}
+								className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-green-900/20 flex items-center gap-2"
+							>
+								<Play size={10} fill="currentColor" /> Resume Cron
+							</button>
+						) : (
+							<button
+								onClick={() => setIsPauseModalOpen(true)}
+								className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-zinc-700 flex items-center gap-2"
+							>
+								<Pause size={10} fill="currentColor" /> Pause Cron
+							</button>
+						)}
+						<button
+							onClick={async () => {
+								if (!confirm('Trigger manual recommendation run?')) return;
+								try {
+									await fetch('/api/pipeline/run', { method: 'POST' });
+									alert('Pipeline started! System is processing.');
+								} catch (err) {
+									console.error('Failed to start pipeline:', err);
+								}
+							}}
+							className="bg-orange-600 hover:bg-orange-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/20"
+						>
+							Run Pipeline
+						</button>
+					</div>,
 					headerActions,
 				)}
 
@@ -275,6 +329,7 @@ export const Status: React.FC = () => {
 					</div>
 				</div>
 			)}
+			<PauseModal isOpen={isPauseModalOpen} onClose={() => setIsPauseModalOpen(false)} onPause={handlePause} />
 		</div>
 	);
 };

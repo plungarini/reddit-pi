@@ -55,6 +55,7 @@ export const config = {
 			externalConfig.candidatePoolSize || process.env.CANDIDATE_POOL_SIZE || '100',
 			10,
 		),
+		pausedUntil: externalConfig.pausedUntil || process.env.CRON_PAUSED_UNTIL || null,
 	},
 
 	weights: {
@@ -72,6 +73,7 @@ export function updatePersistentConfig(updates: {
 	cronSchedule?: string;
 	postsPerBatch?: number;
 	candidatePoolSize?: number;
+	pausedUntil?: string | null;
 }) {
 	const current = loadExternalConfig();
 	const next = { ...current, ...updates };
@@ -105,6 +107,11 @@ export function updatePersistentConfig(updates: {
 	if (updates.candidatePoolSize) {
 		updateEnvVar('CANDIDATE_POOL_SIZE', String(updates.candidatePoolSize));
 		(config.cron as any).candidatePoolSize = updates.candidatePoolSize;
+	}
+	if (updates.hasOwnProperty('pausedUntil')) {
+		const val = updates.pausedUntil || '';
+		updateEnvVar('CRON_PAUSED_UNTIL', val);
+		(config.cron as any).pausedUntil = updates.pausedUntil;
 	}
 
 	fs.writeFileSync('.env', envContent.trim() + '\n');

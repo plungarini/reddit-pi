@@ -58,18 +58,31 @@ const FormattedContent: React.FC<{ text: string; className?: string }> = ({ text
 };
 
 export const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDislike }) => {
+	const [isExiting, setIsExiting] = React.useState(false);
 	const isLiked = post.interaction === 'like';
 	const isDisliked = post.interaction === 'dislike';
+
+	const handleAction = (action: 'like' | 'dislike') => {
+		if (isExiting || post.interaction) return;
+
+		setIsExiting(true);
+		setTimeout(() => {
+			if (action === 'like') onLike(post.id);
+			else onDislike(post.id);
+		}, 400); // 400ms for visual buffer
+	};
 
 	return (
 		<motion.div
 			layout
 			initial={{ opacity: 0, y: 20 }}
-			animate={{ opacity: 1, y: 0 }}
+			animate={isExiting ? { opacity: 0, scale: 0.9, y: 10 } : { opacity: 1, y: 0 }}
+			transition={{ duration: 0.3 }}
 			className={cn(
 				'bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-4 transition-all',
-				isLiked && 'border-green-500/50 bg-green-500/5',
-				isDisliked && 'border-red-500/50 bg-red-500/5 opacity-50',
+				(isLiked || (isExiting && !isDisliked)) && 'border-green-500/50 bg-green-500/5',
+				(isDisliked || (isExiting && isDisliked)) && 'border-red-500/50 bg-red-500/5',
+				isDisliked && 'opacity-50',
 			)}
 		>
 			<div className="p-4">
@@ -121,29 +134,29 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onLike, onDislike }) =
 
 				<div className="flex gap-2">
 					<button
-						onClick={() => onLike(post.id)}
-						disabled={isDisliked}
+						onClick={() => handleAction('like')}
+						disabled={isDisliked || isExiting}
 						className={cn(
 							'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95',
-							isLiked
+							isLiked || (isExiting && !isDisliked)
 								? 'bg-green-500 text-white shadow-lg shadow-green-500/20'
 								: 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700',
 						)}
 					>
-						<ThumbsUp size={18} />
+						<ThumbsUp size={18} fill={isLiked || (isExiting && !isDisliked) ? 'currentColor' : 'none'} />
 						Like
 					</button>
 					<button
-						onClick={() => onDislike(post.id)}
-						disabled={isLiked}
+						onClick={() => handleAction('dislike')}
+						disabled={isLiked || isExiting}
 						className={cn(
 							'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95',
-							isDisliked
+							isDisliked || (isExiting && isDisliked)
 								? 'bg-red-500 text-white shadow-lg shadow-red-500/20'
 								: 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700',
 						)}
 					>
-						<ThumbsDown size={18} />
+						<ThumbsDown size={18} fill={isDisliked || (isExiting && isDisliked) ? 'currentColor' : 'none'} />
 						Dislike
 					</button>
 					<a

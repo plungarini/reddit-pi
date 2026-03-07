@@ -22,6 +22,18 @@ export function startCron(): void {
 	}
 
 	scheduledTask = cron.schedule(schedule, async () => {
+		if (config.cron.pausedUntil) {
+			if (config.cron.pausedUntil === 'forever') {
+				console.log('[cron] Skipping pipeline run: Paused indefinitely');
+				return;
+			}
+			const pausedUntil = new Date(config.cron.pausedUntil);
+			if (new Date() < pausedUntil) {
+				console.log(`[cron] Skipping pipeline run: Paused until ${config.cron.pausedUntil}`);
+				return;
+			}
+		}
+
 		console.log('[cron] Triggered pipeline run');
 		await runPipeline();
 	});
