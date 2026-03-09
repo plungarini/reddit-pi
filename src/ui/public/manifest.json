@@ -1,0 +1,29 @@
+{
+	"name": "Reddit Pi",
+	"short_name": "Reddit Pi",
+	"name_longer": "Reddit Pi - Raspberry Pi Engine",
+	"description": "Premium Reddit client and recommendation engine for Raspberry Pi",
+	"icons": [
+		{
+			"src": "/icon-192.png",
+			"type": "image/png",
+			"sizes": "192x192",
+			"purpose": "any maskable"
+		},
+		{
+			"src": "/icon-512.png",
+			"type": "image/png",
+			"sizes": "512x512",
+			"purpose": "any maskable"
+		},
+		{
+			"src": "/favicon.png",
+			"type": "image/png",
+			"sizes": "32x32"
+		}
+	],
+	"start_url": "/",
+	"display": "standalone",
+	"theme_color": "#FF4500",
+	"background_color": "#09090b"
+}
