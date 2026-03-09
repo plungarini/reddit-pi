@@ -30,9 +30,6 @@ export async function chatCompletion(messages: ChatMessage[], model?: string): P
 			messages,
 			max_tokens: 150,
 			temperature: 0.3,
-			provider: {
-				prompt_caching: true,
-			},
 		}),
 		signal: AbortSignal.timeout(60000), // 60s timeout for Pi connectivity
 	});
