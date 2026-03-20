@@ -96,7 +96,10 @@ export async function runPipeline(): Promise<void> {
 		);
 		console.log(`[pipeline] Batch ${batchId} created`);
 
-		// Step 9: Send WhatsApp notification
+		// Step 9: Send notifications
+		const { sendBatchAlert } = await import('./notify/nesthub');
+		await sendBatchAlert(final as any);
+
 		const notified = await sendBatchNotification(final as any);
 		if (notified) markBatchNotified(batchId);
 

@@ -58,6 +58,10 @@ export const config = {
 		pausedUntil: externalConfig.pausedUntil || process.env.CRON_PAUSED_UNTIL || null,
 	},
 
+	nesthub: {
+		apiUrl: process.env.NESTHUB_PI_URL || 'http://127.0.0.1:3004',
+	},
+
 	weights: {
 		redditScore: Number.parseFloat(process.env.WEIGHT_REDDIT_SCORE || '0.15'),
 		recency: Number.parseFloat(process.env.WEIGHT_RECENCY || '0.10'),
